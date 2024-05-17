@@ -265,7 +265,7 @@ transitionProbability = [
         # "tired"
             # attack -> die, win
         [
-            [0.65, 0.45], 
+            [0.65, 0.35], 
             # rest -> die, rested
             [0.3, 0.7]
         ],
@@ -398,6 +398,203 @@ initialPolicy = [
     ]
 ]
 
+randomPolicy = [
+    # level 0
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0.5,
+            # rest -> die, rested
+            0.5
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            1/3, 
+            # defend -> tired, rested
+            1/3,
+            # train -> die, next level and tired
+            1/3
+        ]
+    ],
+    # level 1
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0.5,
+            # rest -> die, rested
+            0.5
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            1/3, 
+            # defend -> tired, rested
+            1/3,
+            # train -> die, next level and tired
+            1/3
+        ]
+    ],
+    # level 2
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0.5,
+            # rest -> die, rested
+            0.5
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            1/3, 
+            # defend -> tired, rested
+            1/3,
+            # train -> die, next level and tired
+            1/3
+        ]
+    ],
+    # level 3
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0.5,
+            # rest -> die, rested
+            0.5
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            1/3, 
+            # defend -> tired, rested
+            1/3,
+            # train -> die, next level and tired
+            1/3
+        ]
+    ],
+    # level 4
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0.5,
+            # rest -> die, rested
+            0.5
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            1/3, 
+            # defend -> tired, rested
+            1/3,
+            # train -> die, next level and tired
+            1/3
+        ]
+    ]
+]
+
+
+actions = [
+    # level 0
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0,
+            # rest -> die, rested
+            1
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            0, 
+            # defend -> tired, rested
+            1,
+            # train -> die, next level and tired
+            2
+        ]
+    ],
+    # level 1
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0,
+            # rest -> die, rested
+            1
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            0, 
+            # defend -> tired, rested
+            1,
+            # train -> die, next level and tired
+            2
+        ]
+    ],
+    # level 2
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0,
+            # rest -> die, rested
+            1
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            0, 
+            # defend -> tired, rested
+            1,
+            # train -> die, next level and tired
+            2
+        ]
+    ],
+    # level 3
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0,
+            # rest -> die, rested
+            1
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            0, 
+            # defend -> tired, rested
+            1,
+            # train -> die, next level and tired
+            2
+        ]
+    ],
+    # level 4
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            0,
+            # rest -> die, rested
+            1
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            0, 
+            # defend -> tired, rested
+            1,
+            # train -> die, next level and tired
+            2
+        ]
+    ]
+]
+
 vTable = [
     # status: tired rested
     [0, 0],
@@ -482,7 +679,6 @@ def updatePolicy():
 #         print (initialPolicy[level][status])
 #         print (actionValues[level][status])
 
-        
 def GPI():
     global initialPolicy
 
@@ -498,8 +694,60 @@ def GPI():
         initialPolicy = updatePolicy()
 
 GPI()
-p.pprint (actionValues)
-p.pprint (initialPolicy)
+#p.pprint (randomPolicy)
+#p.pprint (initialPolicy)
+
+def transit(level, status, action):
+    newState = np.random.choice(transition[level][status][action], p=transitionProbability[level][status][action]) 
+    return newState
+    
+episodes = 4000
+steps = 100
+
+rewards = []
+stepCounts = []
+
+def mdp(policy, episodes, steps):
+    global stepCount
+
+    for episode in range(episodes):
+        # initialization
+        level = L_0
+        status = RESTED
+        totalRewards = 0
+        stepCount = 0
+        for step in range(steps):
+            # choose action
+            action = np.random.choice(actions[level][status], p=policy[level][status])
+
+            # execute
+            newState = transit(level, status, action)
+            totalRewards += newState['reward']
+            status = newState['status']
+            level = newState['level']
+
+            # check if reached a terminal state
+            stepCount += 1
+            if (newState['terminal'] != None):
+                break
+        rewards.append(totalRewards)
+        stepCounts.append(stepCount)
+
+mdp(initialPolicy, episodes, steps)
+p.pprint(initialPolicy)
+
+plt.plot(stepCounts, label='Total Reward')
+plt.title('Rewards per Episode')
+plt.xlabel('Episode')
+plt.ylabel('Total Reward')
+plt.show()
+
+input('press any key to exit')
+
+
+
+#p.pprint(transition[0][0])
+#p.pprint(randomPolicy[0][0])
 
 #p.pprint (vTable)
 # p.pprint (actionValues)
@@ -525,23 +773,23 @@ p.pprint (initialPolicy)
 
 # 12 states in total, (5 levels)*(tired+rested)+(dead,win)
 
-rewards = {f'R-{i}': {'attack': {'Won': 1, 'Dead': -1},
-                      'defend': {f'T-{i}': 0, f'R-{i}': 0},  # Boss has a 30% chance to attack.
-                      'train': {f'T-{i + 1}': 0, 'Dead': -1}
-                      } for i in range(1, 6)}
-rewards.update({f'T-{i}': {'rest': {f'R-{i}': 0, 'Dead': -1},
-                           'attack': {'Won': 1, 'Dead': -1}} for i in range(1, 6)})
+# rewards = {f'R-{i}': {'attack': {'Won': 1, 'Dead': -1},
+#                       'defend': {f'T-{i}': 0, f'R-{i}': 0},  # Boss has a 30% chance to attack.
+#                       'train': {f'T-{i + 1}': 0, 'Dead': -1}
+#                       } for i in range(1, 6)}
+# rewards.update({f'T-{i}': {'rest': {f'R-{i}': 0, 'Dead': -1},
+#                            'attack': {'Won': 1, 'Dead': -1}} for i in range(1, 6)})
 
-for s, a in transitions.items():
-    for action, outcomes in a.items():
-        assert action in a  # Making sure each action is legal
-        assert isclose(sum(outcomes.values()), 1, abs_tol=1e-4)  # Making sure the sum of outcomes is effectively 1
+# for s, a in transitions.items():
+#     for action, outcomes in a.items():
+#         assert action in a  # Making sure each action is legal
+#         assert isclose(sum(outcomes.values()), 1, abs_tol=1e-4)  # Making sure the sum of outcomes is effectively 1
 
-mdp = MDP(states, actions, transitions=transitions, rewards=rewards)  # create an MDP
+# mdp = MDP(states, actions, transitions=transitions, rewards=rewards)  # create an MDP
 
 
-state = mdp.reset()  # reset/re-initialize
-totalRewards = 0
+# state = mdp.reset()  # reset/re-initialize
+# totalRewards = 0
 
 # for _ in range(5):
 #     action = choice(mdp.getActions())
