@@ -1,64 +1,72 @@
-from itertools import product
+from mdp import MDP, State
 
+from copy import deepcopy
+from pprint import pprint
 
-import numpy as np
 
 GAMMA = 0.9
+LEARNING_RATE = 0.01
 
 
-def UpdateV(policy, state, probabilities, items, vTable) -> int:
-    return sum(policy[state][i] * GetFutureReward(i, state, probabilities, items, vTable)
-               for i in range(len(policy[state])))
+def Gt(state: State, action: str, nextState: State, mdp: MDP, vTable: dict) -> float:
+    return mdp.getReward(state, action, nextState) + (GAMMA * vTable[nextState])
 
 
-# expected reward: ∑s′,rp(s′,r∣s,a)[r+γV(s′)], gamma is 0.9
-def GetFutureReward(action, state, probabilities, items, vTable):
-    item = items[state][action]
-    return sum(probabilities[state][action][i] * (item[i]['reward'] + (GAMMA * vTable[item[i]['state']]))
-               for i in range(len(probabilities[state][action])))
+def CalculateV(policy: dict, state: State, mdp: MDP, vTable: dict) -> float:
+    if mdp.isTerminal(state):
+        return 0
+
+    return sum(p * CalculateQ(state, a, mdp, vTable)
+               for a, p in policy[state].items())
 
 
-def ConvergeV(policy, states: list, probabilities, items, vTable) -> None:
-    for i, j in product(range(100), range(len(states))):
-        vTable[j] = UpdateV(policy, j, probabilities, items, vTable)
+# expected reward: ∑s′,rp(s′,r∣s,a)[r+γV(s′)]
+def CalculateQ(state: State, action: str, mdp: MDP, vTable: dict) -> float:
+
+    return sum(p * Gt(state, action, sNext, mdp, vTable)
+               for sNext, p in mdp.transitions[state][action].items())
 
 
-# policy improvement
-def UpdatePolicy(policy, probabilities, items, vTable):
-    # loop over states
-    for i in range(len(probabilities)):
-        # loop over actions
-        q = [calculateQ(i, j, probabilities, items, vTable) for j in range(len(probabilities[i]))]
-
-        policy[i] = {a: int(a == np.argmax(q)) for a in range(len(policy[i]))}
-
-    return policy
+def UpdateQ(state: State, policy: dict, mdp: MDP, vTable: dict) -> dict:
+    return {a: CalculateQ(state, a, mdp, vTable) for a in policy[state]}
 
 
-# Q update function: Q(s,a)←Q(s,a)+α[r+γmax a′​Q(s′,a′)−Q(s,a)], gamma is 0.9
-def calculateQ(state, action, probabilities, items, vTable):
-    item = items[state][action]
-    return sum(probabilities[state][action][i] * (item[i]['reward'] + (GAMMA * vTable[item[i]['state']]))
-               for i in range(len(probabilities[state][action])))
+def ArgMax(d: dict):  # np.argmax was causing issues.
+    for k in d:
+        if d[k] == max(d.values()):
+            return k
 
 
+def UpdatePolicy(policy: dict, actionValues: dict) -> dict:  # Choosing the optimal action from our actionValues.
+    updatedPolicy = deepcopy(policy)
 
-def EvaluatePolicy(vTable: dict, n=100):
-    # policy evaluation
-    for _ in range(n):
-        for s in vTable:
-            vTable[s] = UpdateV(policy, s)
+    for state in policy:
+        optimalAction = ArgMax(actionValues[state])
+
+        updatedPolicy[state] = {a: int(a == optimalAction) for a in policy[state]}
+
+    return updatedPolicy
 
 
-def GPI(iterations: int, policy: dict, states: list, probabilities, items, gamma: float):
-    vTable = {s: 0 for s in states}
+def UpdateV(vTable: dict, policy: dict, mdp: MDP, sweeps: int) -> dict:
+    for _ in range(sweeps):
+        tableCopy = deepcopy(vTable)
+
+        vTable = {s: CalculateV(policy, s, mdp, tableCopy) for s in tableCopy}
+
+    return vTable
+
+
+def GPI(iterations: int, policy: dict, mdp: MDP) -> dict:
+    vTable = {s: 0 for s in mdp.statesPlus}
 
     for i in range(iterations):
-        # policy evaluation
-        ConvergeV(policy, states, probabilities, items, vTable, gamma)
+        # Evaluation
+        vTable = UpdateV(vTable, policy, mdp, sweeps=100)
+        actionValues = {s: UpdateQ(s, policy, mdp, vTable) for s in mdp.states}
 
-        # policy improvement
-        policy = UpdatePolicy(policy, probabilities, items, vTable, gamma)
+        # Improvement
+        policy = UpdatePolicy(policy, actionValues)
 
     return policy
 

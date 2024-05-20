@@ -1,26 +1,28 @@
-from attrs import field, frozen
 from math import isclose
+
+from frozendict import frozendict
 from random import choice, choices
 
 
-@frozen
-class State:
-    level: int | None = field(default=None)
-    tired: bool | None = field(default=None)
-
-    terminal: bool = field(default=False)
-    title: str | None = field(default=None)
+class State(frozendict):
+    def __new__(cls, *args, **kwargs):
+        return frozendict.__new__(cls, *args, **kwargs)
 
     def __str__(self):
-        if self.terminal:
-            return self.title
+        if 'title' in self:
+            return self['title']
 
-        return f"L{self.level} ({'T' if self.tired else 'R'})"
+        return f"L{self['level']} ({'T' if self['tired'] else 'R'})"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class MDP:
-    def __init__(self, states, actions, transitions=None, rewards=None, gamma=0.9, eps=1e-6, T=100, costOfLiving=0, startingState = None):
+    def __init__(self, states, statesPlus, actions, transitions=None, rewards=None, gamma=0.9, eps=1e-6, T=100, costOfLiving=0,
+                 startingState=None):
         self.states = states
+        self.statesPlus = statesPlus
         self.actions = actions
         self.transitions = transitions
         self.rewards = rewards
@@ -39,7 +41,8 @@ class MDP:
         for s, a in self.transitions.items():
             for action, outcomes in a.items():
                 try:
-                    assert isclose(sum(outcomes.values()), 1, abs_tol=1e-4)  # Making sure the sum of outcomes is effectively 1
+                    assert isclose(sum(outcomes.values()), 1,
+                                   abs_tol=1e-4)  # Making sure the sum of outcomes is effectively 1
                 except AssertionError:
                     raise AssertionError(f"Probability not 1: {s} + {action} -> {outcomes.values()}")
 
@@ -71,7 +74,13 @@ class MDP:
     def getActions(self) -> list:
         return self.actions[self.currentState]
 
-    def step(self, action):
+    def isTerminal(self, state):
+        return state not in self.transitions
+
+    def getReward(self, state, action, newState):
+        return self.rewards.get(state, {}).get(action, {}).get(newState, 0) + self.costOfLiving
+
+    def step(self, action, message=False):
         if action not in self.actions[self.currentState]:
             print('\tInvalid action:', action)
             return (self.currentState,
@@ -81,18 +90,22 @@ class MDP:
                     "Invalid")
 
         possibleOutcomes = self.transitions[self.currentState][action]  # {s: chance, s: chance, etc.}
-        newState = choices(list(possibleOutcomes.keys()), possibleOutcomes.values())[0]
-        reward = self.rewards.get(self.currentState, {}).get(action, {}).get(newState, 0)
 
-        self.currentState = newState
+        newState = choices(list(possibleOutcomes.keys()), list(possibleOutcomes.values()))[0]
+        reward = self.getReward(self.currentState, action, newState)
+
+        if message:
+            print(f"\t{self.currentState} -> {newState} via {action} (reward of {reward:.2f})")
+
         self.stepsTaken += 1
+        self.currentState = newState
 
         return (newState,
-                reward + self.costOfLiving,
-                newState not in self.transitions,  # In our case we treat 'sinks' (states with no further transitions) as terminal.
+                reward,
+                self.isTerminal(newState),
+                # In our case we treat 'sinks' (states with no further transitions) as terminal.
                 self.stepsTaken >= self.T,
                 None)  # What should info be?
-
 
 
 def Test(mdp: MDP, how: str, maxLength: int) -> None:
