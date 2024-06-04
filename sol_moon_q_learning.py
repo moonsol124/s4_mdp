@@ -1,7 +1,6 @@
 from math import isclose
 from random import choice, choices
 import numpy as np
-import networkx as nx
 import matplotlib.pyplot as plt
 import pprint as p
 
@@ -296,6 +295,105 @@ transitionProbability = [
             [0.3, 0.7],
             # train -> die, next level and tired
             [0.3, 0.7]
+        ]
+    ]
+]
+
+deterministicTransitionProbability = [
+    # transition probability is, given the state and action, what happens next?
+    # level 0: tired = 0 rested = 1 dead = 2 win = 3
+    [   
+        # "tired" 
+            # attack -> die, win
+        [
+            [1, 0],
+            # rest -> die, rested
+            [0, 1]
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            [1, 0],
+            # defend -> tired, rested
+            [1, 0],
+            # train -> die, next level and tired
+            [0, 1]
+        ]
+    ],
+    # level 1: tired = 0 rested = 1 dead = 2 win = 3
+        [   
+        # "tired"
+            # attack -> die, win
+        [
+            [1, 0],
+            # rest -> die, rested
+            [0, 1]
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            [1, 0],
+            # defend -> tired, rested
+            [1, 0],
+            # train -> die, next level and tired
+            [0, 1]
+        ]
+    ],
+    # level 2: tired = 0 rested = 1 dead = 2 win = 3
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            [1, 0],
+            # rest -> die, rested
+            [0, 1]
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            [1, 0],
+            # defend -> tired, rested
+            [1, 0],
+            # train -> die, next level and tired
+            [0, 1]
+        ]
+    ],
+        # level 3: tired = 0 rested = 1 dead = 2 win = 3
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            [1, 0],
+            # rest -> die, rested
+            [0, 1]
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            [1, 0],
+            # defend -> tired, rested
+            [1, 0],
+            # train -> die, next level and tired
+            [0, 1]
+        ]
+    ],
+        # level 4: tired = 0 rested = 1 dead = 2 win = 3
+    [   
+        # "tired"
+            # attack -> die, win
+        [
+            [1, 0],
+            # rest -> die, rested
+            [0, 1]
+        ],
+        # "rested"
+        [
+            # attack -> die, win
+            [0, 1],
+            # defend -> tired, rested
+            [1, 0],
+            # train -> die, next level and tired
+            [0, 1]
         ]
     ]
 ]
@@ -653,11 +751,11 @@ def policyEvaluation():
                 vTable[i][j] = updateV(i, j)
 
 actionValues = [
-    [[], []],
-    [[], []],
-    [[], []],
-    [[], []],
-    [[], []]
+    [[0, 0], [0, 0, 0]],
+    [[0, 0], [0, 0, 0]],
+    [[0, 0], [0, 0, 0]],
+    [[0, 0], [0, 0, 0]],
+    [[0, 0], [0, 0, 0]]
 ]
 
 def updatePolicy():
@@ -693,121 +791,85 @@ def GPI():
         
         initialPolicy = updatePolicy()
 
-GPI()
 #p.pprint (randomPolicy)
 #p.pprint (initialPolicy)
 
-def transit(level, status, action):
-    newState = np.random.choice(transition[level][status][action], p=transitionProbability[level][status][action]) 
+def transit(level, status, action, p):
+    newState = np.random.choice(transition[level][status][action], p=p[level][status][action]) 
     return newState
-    
-episodes = 4000
-steps = 100
 
-rewards = []
-stepCounts = []
-
-def mdp(policy, episodes, steps):
+def mdp(policy, episodes, steps, exploration_rate, costOfLiving, learningRate, p, discountFactor):
     global stepCount
 
-    for episode in range(episodes):
+    for episode in range(episodes): 
         # initialization
         level = L_0
         status = RESTED
         totalRewards = 0
         stepCount = 0
+
         for step in range(steps):
             # choose action
-            action = np.random.choice(actions[level][status], p=policy[level][status])
-
+            # Choose action based on epsilon-greedy policy
+            if np.random.rand() < exploration_rate:
+                action = np.random.choice(actions[level][status], p=policy[level][status])
+            else:
+                action = np.argmax(actionValues[level][status][:]) # input is all 4 actions, return the greatest.
             # execute
-            newState = transit(level, status, action)
-            totalRewards += newState['reward']
-            status = newState['status']
-            level = newState['level']
+            newState = transit(level, status, action, p)
+            reward = newState['reward'] - costOfLiving
+            newStatus = newState['status']
+            newLevel = newState['level']
+            terminal = newState['terminal'] 
+            # print ("\n", actionValues[0])
+            # print (actionValues[1])
+            # print (actionValues[2])
+            # print (actionValues[3])
+            # print (actionValues[4], "\n")
+            actionValues[level][status][action] += learningRate * (reward + discountFactor * np.max(actionValues[newLevel][newStatus][:]) - actionValues[level][status][action])
+            totalRewards += reward
 
+            level = newLevel
+            status = newStatus
+
+            if (terminal != None):
+                break
+                
             # check if reached a terminal state
             stepCount += 1
-            if (newState['terminal'] != None):
-                break
+
         rewards.append(totalRewards)
         stepCounts.append(stepCount)
 
-mdp(initialPolicy, episodes, steps)
-p.pprint(initialPolicy)
+episodes = 1*1000
+steps = 10
+# episodes = 10
+# steps = 10
+exploration_rate = 0.001
+costOfLiving = 0.01
+learningRate = 0.1
+rewards = []
+stepCounts = []
+discountFactor = 0.9
+#deterministicTransitionProbability
+mdp(randomPolicy, episodes, steps, exploration_rate, costOfLiving, learningRate, deterministicTransitionProbability, discountFactor)
 
-plt.plot(stepCounts, label='Total Reward')
+# print (actionValues[0])
+# print (actionValues[1])
+# print (actionValues[2])
+# print (actionValues[3])
+# print (actionValues[4])
+
+# #print (randomPolicy)
+# #p.pprint(initialPolicy)
+# #p.pprint(vTable)
+# #p.pprint(actionValues)
+
+plt.plot(rewards, label='Total Reward')
 plt.title('Rewards per Episode')
 plt.xlabel('Episode')
 plt.ylabel('Total Reward')
 plt.show()
+plt.legend()
 
 input('press any key to exit')
-
-
-
-#p.pprint(transition[0][0])
-#p.pprint(randomPolicy[0][0])
-
-#p.pprint (vTable)
-# p.pprint (actionValues)
-
-#p.pprint(initialPolicy[0][0][0])
-#p.pprint(initialPolicy) 
-#p.pprint (values[0][0])
-# p.pprint (vTable)
-# print("q values")
-#p.pprint (values)
-#p.pprint (initialPolicy)
-
-# loop over all states, calculate the Q of each of the actions and select the best one.
-
-
-
-# print(calculateQ(0, 0, 0))
-# print(calculateQ(0, 0, 1))
-# print(calculateQ(0, 1, 0))
-# print(calculateQ(0, 1, 1))
-# print(calculateQ(0, 1, 2))
-
-
-# 12 states in total, (5 levels)*(tired+rested)+(dead,win)
-
-# rewards = {f'R-{i}': {'attack': {'Won': 1, 'Dead': -1},
-#                       'defend': {f'T-{i}': 0, f'R-{i}': 0},  # Boss has a 30% chance to attack.
-#                       'train': {f'T-{i + 1}': 0, 'Dead': -1}
-#                       } for i in range(1, 6)}
-# rewards.update({f'T-{i}': {'rest': {f'R-{i}': 0, 'Dead': -1},
-#                            'attack': {'Won': 1, 'Dead': -1}} for i in range(1, 6)})
-
-# for s, a in transitions.items():
-#     for action, outcomes in a.items():
-#         assert action in a  # Making sure each action is legal
-#         assert isclose(sum(outcomes.values()), 1, abs_tol=1e-4)  # Making sure the sum of outcomes is effectively 1
-
-# mdp = MDP(states, actions, transitions=transitions, rewards=rewards)  # create an MDP
-
-
-# state = mdp.reset()  # reset/re-initialize
-# totalRewards = 0
-
-# for _ in range(5):
-#     action = choice(mdp.getActions())
-#     newState, reward, terminated, truncated, info = mdp.step(action)  # execute an action in the current state of MDP
-
-#     totalRewards += reward
-#     print(f"{state} -> {newState} via {action} (reward of {reward}, total of {totalRewards})")
-
-#     if terminated:
-#         print('Done!')
-#         break
-
-#     state = newState
-
-
-        #p = transitionProbability[level][status][action][i]
-        #v = vTable[nextLevel][nextStatus]
-        #outcome = transitionProbability[level][status][action][i] * (curReward+(0.9*vTable[nextLevel][nextStatus]))
-        #print (p, v, outcome, curReward)
-        # r = r + (transitionProbability[level][status][action][i] * (curReward+(0.9*vTable[nextLevel][nextStatus])))
-        
