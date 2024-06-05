@@ -645,7 +645,6 @@ def calculateQ(level, status, action):
     return r
 
 def policyEvaluation():
-    # policy evaluation
     for i in range(100):
         for i in range(len(vTable)):
             for j in range(len(vTable[i])):
@@ -681,15 +680,26 @@ def updatePolicy():
 def GPI():
     global initialPolicy
 
-    for i in range(10):
+    for i in range(1):
         # 100 sweeps are done per iteration for policy evaluation
         policyEvaluation()
-
+        print (vTable[0])
+        print (vTable[1])
+        print (vTable[2])
+        print (vTable[3])
+        print (vTable[4])
+            
         # get q values of the current policy after evaluation
         for level in range(len(vTable)):
             for status in range(len(vTable[level])):
                 actionValues[level][status] = policyImprovement(level, status)
         
+        print (actionValues[0])
+        print (actionValues[1])
+        print (actionValues[2])
+        print (actionValues[3])
+        print (actionValues[4])
+
         initialPolicy = updatePolicy()
 
 GPI()
@@ -732,9 +742,9 @@ steps = 100
 rewards = []
 stepCounts = []
 mdp(randomPolicy, episodes, steps)
-p.pprint(initialPolicy)
+#p.pprint(initialPolicy)
 #p.pprint(vTable)
-p.pprint(actionValues)
+#p.pprint(actionValues)
 
 # plt.plot(rewards, label='Total Reward')
 # plt.title('Rewards per Episode')
